@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       },
     });
 
-    const token = await createToken({ tenantId: tenant.id, email: tenant.email });
+    const token = await createToken({ tenantId: tenant.id, email: tenant.email, role: tenant.role });
 
     const response = NextResponse.json({ success: true, tenantId: tenant.id });
     response.cookies.set('admagic_session', token, {

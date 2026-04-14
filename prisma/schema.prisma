@@ -1,11 +1,8 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../node_modules/.prisma/client"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -13,74 +10,158 @@ datasource db {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  password        String
+  name            String
+  logo            String?
+  primaryColor    String   @default("#00a2e8")
+  trackingDomain  String?
+  postbackDomain  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  role            String   @default("USER") // USER (Agency), ADMIN (Platform Owner)
 
-  offers     Offer[]
-  affiliates Affiliate[]
-  clicks     Click[]
-  conversions Conversion[]
+  // Relationships
+  advertisers     Advertiser[]
+  publishers      Publisher[]
+  campaigns       Campaign[]
+  teamMembers     TeamMember[]
+  auditLogs       AuditLog[]
+  clicks          Click[]
+  conversions     Conversion[]
 }
 
-model Offer {
-  id             String   @id @default(cuid())
-  tenantId       String
-  name           String
-  destinationUrl String
-  payout         Float
-  revenue        Float
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  tenant     Tenant    @relation(fields: [tenantId], references: [id])
-  clicks     Click[]
-  conversions Conversion[]
-}
-
-model Affiliate {
+model TeamMember {
   id        String   @id @default(cuid())
   tenantId  String
   name      String
   email     String
+  role      String   @default("MANAGER") // ADMIN, MANAGER, STAFF
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  tenant     Tenant    @relation(fields: [tenantId], references: [id])
-  clicks     Click[]
-  conversions Conversion[]
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model Advertiser {
+  id                String   @id @default(cuid())
+  tenantId          String
+  name              String
+  email             String
+  company           String?
+  status            String   @default("ACTIVE") // ACTIVE, PENDING, DISABLED
+  whatsappId        String?
+  instagramId       String?
+  canNotify         Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant     @relation(fields: [tenantId], references: [id])
+  campaigns         Campaign[]
+}
+
+model Publisher {
+  id                String   @id @default(cuid())
+  tenantId          String
+  name              String
+  email             String
+  phone             String?
+  status            String   @default("ACTIVE")
+  canNotify         Boolean  @default(true)
+  globalPostback    String?  // The URL to notify when a conversion is recorded
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant       @relation(fields: [tenantId], references: [id])
+  clicks            Click[]
+  conversions       Conversion[]
+}
+
+model Campaign {
+  id              String   @id @default(cuid())
+  tenantId        String
+  advertiserId    String
+  title           String
+  objective       String   @default("CPA")
+  destinationUrl  String
+  trackingMethod  String   @default("POSTBACK") // POSTBACK, PIXEL
+  status          String   @default("ACTIVE")   // ACTIVE, PAUSED, PENDING
+  visibility      String   @default("PUBLIC")   // PUBLIC, PRIVATE, REQUIRE_PERMISSION
+  
+  // JSON configurations
+  targeting       String?  // JSON: { countries: [], devices: [], os: [], cities: [] }
+  macros          String?  // JSON Mapping
+  timeTargeting   String?  // JSON configuration
+
+  revenue         Float    @default(0)
+  payout          Float    @default(0)
+  currency        String   @default("USD")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id])
+  advertiser      Advertiser   @relation(fields: [advertiserId], references: [id])
+  goals           Goal[]
+  clicks          Click[]
+  conversions     Conversion[]
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  revenue     Float?
+  payout      Float?
+  createdAt   DateTime @default(now())
+
+  campaign    Campaign @relation(fields: [campaignId], references: [id])
 }
 
 model Click {
-  id          String   @id @default(cuid())
-  tenantId    String
-  offerId     String
-  affiliateId String
-  ip          String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  tenantId      String
+  campaignId    String
+  publisherId   String
+  ip            String?
+  userAgent     String?
+  country       String?
+  city          String?
+  device        String?
+  os            String?
+  browser       String?
+  createdAt     DateTime @default(now())
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id])
-  offer     Offer     @relation(fields: [offerId], references: [id])
-  affiliate Affiliate @relation(fields: [affiliateId], references: [id])
-  conversions Conversion[]
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  campaign      Campaign  @relation(fields: [campaignId], references: [id])
+  publisher     Publisher @relation(fields: [publisherId], references: [id])
+  conversions   Conversion[]
 }
 
 model Conversion {
+  id            String   @id @default(cuid())
+  tenantId      String
+  campaignId    String
+  publisherId   String
+  clickId       String?
+  revenue       Float
+  payout        Float
+  createdAt     DateTime @default(now())
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  campaign      Campaign  @relation(fields: [campaignId], references: [id])
+  publisher     Publisher @relation(fields: [publisherId], references: [id])
+  click         Click?    @relation(fields: [clickId], references: [id])
+}
+
+model AuditLog {
   id          String   @id @default(cuid())
   tenantId    String
-  offerId     String
-  affiliateId String
-  clickId     String?
-  revenue     Float
-  payout      Float
-  createdAt   DateTime @default(now())
+  action      String
+  entity      String
+  entityId    String?
+  actorEmail  String
+  timestamp   DateTime @default(now())
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id])
-  offer     Offer     @relation(fields: [offerId], references: [id])
-  affiliate Affiliate @relation(fields: [affiliateId], references: [id])
-  click     Click?    @relation(fields: [clickId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
 }
