@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offers     Offer[]
+  affiliates Affiliate[]
+  clicks     Click[]
+  conversions Conversion[]
+}
+
+model Offer {
+  id             String   @id @default(cuid())
+  tenantId       String
+  name           String
+  destinationUrl String
+  payout         Float
+  revenue        Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  clicks     Click[]
+  conversions Conversion[]
+}
+
+model Affiliate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  clicks     Click[]
+  conversions Conversion[]
+}
+
+model Click {
+  id          String   @id @default(cuid())
+  tenantId    String
+  offerId     String
+  affiliateId String
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  offer     Offer     @relation(fields: [offerId], references: [id])
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id])
+  conversions Conversion[]
+}
+
+model Conversion {
+  id          String   @id @default(cuid())
+  tenantId    String
+  offerId     String
+  affiliateId String
+  clickId     String?
+  revenue     Float
+  payout      Float
+  createdAt   DateTime @default(now())
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  offer     Offer     @relation(fields: [offerId], references: [id])
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id])
+  click     Click?    @relation(fields: [clickId], references: [id])
+}
